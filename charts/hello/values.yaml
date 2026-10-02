@@ -25,6 +25,9 @@ resources:
 
 podSecurityContext:
   runAsNonRoot: true
+  # Explicit, so the chart does not depend on how an image declares its user.
+  runAsUser: 65532
+  runAsGroup: 65532
 
 securityContext:
   allowPrivilegeEscalation: false

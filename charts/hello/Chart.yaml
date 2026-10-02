@@ -4,5 +4,5 @@ description: A tiny service for learning Helm + Argo CD
 type: application
 # Bump `version` when the CHART changes (templates, defaults).
 # `appVersion` is informational; the deployed image tag lives in envs/*/values.yaml.
-version: 0.1.0
+version: 0.1.1
 appVersion: "dev"
