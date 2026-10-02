@@ -56,7 +56,7 @@ credential-free; private is a later exercise).
    and curl it from a pod inside the cluster to see the pod name change:
    ```
    kubectl -n scratch run curl --rm -i --restart=Never --image=curlimages/curl:8.22.0 -- \
-     sh -c 'for i in 1 2 3 4 5 6; do curl -s hello; echo; done'
+     sh -c 'sleep 2; for i in 1 2 3 4 5 6; do curl -s hello; done'
    ```
    (Don't use `kubectl port-forward` for this: it tunnels to one pod, so the name never changes.)
 6. Change the color: `helm upgrade hello charts/hello -n scratch --reuse-values --set color=green`.
