@@ -25,7 +25,8 @@ A deploy is a reviewable PR, and a rollback is `git revert`.
 ## Prerequisites
 
 On macOS, run `make setup` (Homebrew required). It installs everything in the `Brewfile`,
-starts Docker via colima (headless, no Docker Desktop needed), and enables the repo git hooks.
+starts Docker via colima (headless, no Docker Desktop needed) as a login service so it
+survives reboots, and enables the repo git hooks.
 It is safe to re-run. You also need a public GitHub repo (public keeps Argo CD and image pulls
 credential-free; private is a later exercise).
 
@@ -43,16 +44,30 @@ credential-free; private is a later exercise).
 
 ## Phase 1: Kubernetes and Helm, no Argo yet
 
-1. `make up`, then poke around: `kubectl get nodes`, `kubectl get pods -A`.
+1. `make up`, then poke around: `kubectl get nodes`, `kubectl get pods -A -o wide`.
+   Which `kube-system` pods run only on the control-plane node, and why?
 2. `helm lint charts/hello` and `helm template hello charts/hello -f envs/dev/values.yaml`.
    Read the rendered YAML next to the templates until the mapping is obvious.
-   (These couldn't be run where the scaffold was written, so this is also the first real test.)
 3. Build locally and load into kind, skipping the registry:
    `docker build -t hello:local app && kind load docker-image hello:local --name gitops-lab`
 4. `helm install hello charts/hello -n scratch --create-namespace --set image.repository=hello --set image.tag=local`
 5. Explore: `kubectl -n scratch get deploy,rs,pods,svc`, `kubectl describe pod`, `kubectl logs`.
-   Delete a pod and watch the ReplicaSet replace it. Scale to 3 and curl a few times to see the pod name change.
-6. `helm upgrade` with `--set color=green`, then `helm history` and `helm rollback`.
+   Delete a pod and watch the ReplicaSet replace it. Then `kubectl -n scratch scale deploy/hello --replicas=3`
+   and curl it from a pod inside the cluster to see the pod name change:
+   ```
+   kubectl -n scratch run curl --rm -i --restart=Never --image=curlimages/curl:8.22.0 -- \
+     sh -c 'for i in 1 2 3 4 5 6; do curl -s hello; echo; done'
+   ```
+   (Don't use `kubectl port-forward` for this: it tunnels to one pod, so the name never changes.)
+6. Change the color: `helm upgrade hello charts/hello -n scratch --reuse-values --set color=green`.
+   - `--reuse-values` matters. Without it, Helm resets every value you don't pass again, so your
+     `--set image.*` from step 4 would vanish and the pod would try to pull `ghcr.io/...:latest`.
+   - It will fail with `conflict with "kubectl" with subresource "scale" ... .spec.replicas`. That's
+     on purpose: Helm 4 applies server-side, and the API server remembers that *you* set `replicas`
+     with kubectl in step 5. Two owners, one field. Read the error, then decide: re-run with
+     `--force-conflicts` to let Helm take the field back (watch replicas drop to the chart's 1).
+     Argo CD's drift detection is the same idea.
+   Then `helm history hello -n scratch` and `helm rollback hello 1 -n scratch`.
 7. `helm uninstall hello -n scratch`. Phase 2 hands control to Argo.
 
 ## Phase 2: GitOps with Argo CD
@@ -60,27 +75,38 @@ credential-free; private is a later exercise).
 1. Push this repo to GitHub. In repo settings, under **Actions → General**, allow
    GitHub Actions to create pull requests.
 2. `make init REPO_URL=https://github.com/<you>/gitops-lab.git GHCR_OWNER=<you>`, commit, push.
-3. Run the **build** workflow manually (Actions tab → build → Run workflow).
-   After it pushes the first image, open the package on GitHub and set its visibility to **public**.
-   Merge the deploy PR it opened.
+   (Safe to re-run; it says so when there is nothing left to fill.)
+3. The **build** workflow runs on any push to `main` that touches `app/`, so that push already
+   started it (or run it from Actions → build → Run workflow). It builds amd64 and arm64 images,
+   since kind on an Apple Silicon Mac runs arm64 nodes.
+   After it pushes the first image, open the package on GitHub (your profile → Packages → hello)
+   and set its visibility to **public**. Merge the newest deploy PR it opened; close older ones.
 4. `make argocd`, `make password`, `make ui` → https://localhost:8443 (user `admin`).
 5. `make bootstrap`. Watch root create the project, then hello-dev and hello-prod.
    Dev syncs on its own. Prod shows OutOfSync until you press Sync. That's the promotion gate.
+   Don't Sync prod yet: its tag is still a placeholder (`latest` is never pushed), so it would
+   go to ImagePullBackOff. Prod gets a real tag in the Promotion drill.
 6. `make curl-dev`.
 
 ## Phase 3: Break it on purpose
 
 Each drill teaches one behavior. Write what you saw in your journal.
+Make every change through a PR. A `kubectl edit` to an Application gets reverted within seconds,
+because root (app of apps) self-heals the Applications too.
 
 - **Drift:** `kubectl -n hello-dev scale deploy/hello --replicas=5`. Self-heal puts it back. Why is that the point?
 - **Bad deploy:** edit `envs/dev/values.yaml` to a tag that doesn't exist, PR, merge.
-  Watch ImagePullBackOff and the app go Degraded. Roll back with `git revert`, not kubectl.
-- **Bad chart:** break a template's indentation in a PR. `ci.yaml` should block it before merge.
-- **Tenant boundary:** in an Application, point `destination.namespace` at `kube-system`. The AppProject refuses it.
+  Watch ImagePullBackOff. Argo shows the app Progressing for about 10 minutes, then Degraded:
+  that's the Deployment's `progressDeadlineSeconds` (default 600) running out. Roll back with `git revert`, not kubectl.
+- **Bad chart:** break a template's indentation in a PR. `ci.yaml` goes red, but notice that GitHub
+  still lets you merge: a check only blocks once a ruleset requires it. That's Phase 5.
+- **Tenant boundary:** in a PR, point an Application's `destination.namespace` at `kube-system`.
+  The AppProject refuses it: `namespace 'kube-system' do not match any of the allowed destinations in project 'lab'`.
 - **Promotion:** copy the tested tag from dev into `envs/prod/values.yaml` in a PR, merge, then Sync prod manually.
-- **The bot-PR gotcha:** notice that CI did **not** run on the deploy PR the build workflow opened.
-  PRs created with the default `GITHUB_TOKEN` don't trigger other workflows. Fixing it (GitHub App token)
-  is a real agent-ready-delivery problem: automated PRs must go through the same checks as human ones.
+- **The bot-PR gotcha:** open the deploy PR the build workflow opened and look at its checks: there are none.
+  The `ci` and `guard` runs it triggered sit in the Actions tab as `action_required` instead of running,
+  because the PR was created with the default `GITHUB_TOKEN`. Fixing it (a GitHub App token) is a real
+  agent-ready-delivery problem: automated PRs must go through the same checks as human ones.
 
 ## Phase 3.5 (optional): Run your own CI runners with ARC (outline)
 

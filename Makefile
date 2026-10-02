@@ -1,6 +1,7 @@
 # Usage: make help
-# Pin ARGOCD_VERSION to a real release tag (e.g. v3.x.y). Pinning is the lesson.
-ARGOCD_VERSION ?= stable
+# Pinned on purpose: `stable` moves under you, so two installs a week apart can differ.
+# Upgrading Argo CD is a reviewed one-line PR. Override for a one-off: make argocd ARGOCD_VERSION=v3.x.y
+ARGOCD_VERSION ?= v3.5.3
 CLUSTER        ?= gitops-lab
 
 .PHONY: help setup init up down argocd password ui bootstrap status curl-dev
@@ -13,10 +14,13 @@ setup: ## Install tools (Brewfile), start Docker (colima), enable git hooks. Saf
 
 init: ## Fill in placeholders: make init REPO_URL=https://github.com/you/gitops-lab.git GHCR_OWNER=you
 	@test -n "$(REPO_URL)" && test -n "$(GHCR_OWNER)" || (echo "need REPO_URL and GHCR_OWNER"; exit 1)
-	@grep -rl '__REPO_URL__\|__GHCR_OWNER__' argocd charts envs | xargs perl -pi -e 's#__REPO_URL__#$(REPO_URL)#g; s#__GHCR_OWNER__#$(shell echo $(GHCR_OWNER) | tr A-Z a-z)#g'
-	@echo "Placeholders filled. Commit and push."
+	@files=$$(grep -rl '__REPO_URL__\|__GHCR_OWNER__' argocd charts envs); \
+	if [ -z "$$files" ]; then echo "No placeholders left; nothing to do."; exit 0; fi; \
+	perl -pi -e 's#__REPO_URL__#$(REPO_URL)#g; s#__GHCR_OWNER__#$(shell echo $(GHCR_OWNER) | tr A-Z a-z)#g' $$files; \
+	echo "Placeholders filled. Commit and push."
 
 up: ## Create the kind cluster
+	@docker info >/dev/null 2>&1 || { echo "Docker is not running. Run: make setup"; exit 1; }
 	kind create cluster --config kind/cluster.yaml
 
 down: ## Delete the kind cluster
@@ -41,6 +45,7 @@ status: ## Show Argo CD applications and the hello pods
 	kubectl -n argocd get applications
 	kubectl get pods -A -l app.kubernetes.io/name=hello -o wide
 
-curl-dev: ## Hit the dev service through a port-forward
-	@kubectl -n hello-dev port-forward svc/hello 8081:80 >/dev/null 2>&1 & \
-	  sleep 2; curl -s localhost:8081; echo; kill $$!
+curl-dev: ## Curl the dev service 6 times from a pod inside the cluster
+	@# Not a port-forward: that tunnels to a single pod, so you would never see load balancing.
+	@kubectl -n hello-dev run curl-$$$$ --rm -i --quiet --restart=Never --image=curlimages/curl:8.22.0 -- \
+	  sh -c 'for i in 1 2 3 4 5 6; do curl -s hello; echo; done'

@@ -1,6 +1,7 @@
 # Everything the lab needs on macOS. Installed by scripts/setup.sh (brew bundle).
 brew "colima"        # headless Docker runtime (a Linux VM); replaces Docker Desktop
 brew "docker"        # docker CLI, talks to colima
+brew "docker-buildx"   # BuildKit builder; the legacy one is deprecated
 brew "docker-credential-helper"  # stores registry logins in the macOS Keychain
 brew "kind"          # Kubernetes clusters as Docker containers
 brew "kubernetes-cli"
