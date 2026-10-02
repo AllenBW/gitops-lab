@@ -3,10 +3,13 @@
 ARGOCD_VERSION ?= stable
 CLUSTER        ?= gitops-lab
 
-.PHONY: help init up down argocd password ui bootstrap status curl-dev
+.PHONY: help setup init up down argocd password ui bootstrap status curl-dev
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-12s %s\n", $$1, $$2}'
+
+setup: ## Install tools (Brewfile), start Docker (colima), enable git hooks. Safe to re-run
+	./scripts/setup.sh
 
 init: ## Fill in placeholders: make init REPO_URL=https://github.com/you/gitops-lab.git GHCR_OWNER=you
 	@test -n "$(REPO_URL)" && test -n "$(GHCR_OWNER)" || (echo "need REPO_URL and GHCR_OWNER"; exit 1)

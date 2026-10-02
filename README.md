@@ -24,8 +24,10 @@ A deploy is a reviewable PR, and a rollback is `git revert`.
 
 ## Prerequisites
 
-Docker, `kind`, `kubectl`, `helm`, and a public GitHub repo (public keeps Argo CD
-and image pulls credential-free; private is a later exercise).
+On macOS, run `make setup` (Homebrew required). It installs everything in the `Brewfile`,
+starts Docker via colima (headless, no Docker Desktop needed), and enables the repo git hooks.
+It is safe to re-run. You also need a public GitHub repo (public keeps Argo CD and image pulls
+credential-free; private is a later exercise).
 
 ## Layout
 
