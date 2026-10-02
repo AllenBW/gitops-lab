@@ -1,4 +1,4 @@
 # dev: auto-synced by Argo CD. CI opens a PR to bump image.tag after each build.
 image:
-  tag: "latest"   # CI replaces this with a commit SHA
+  tag: "1ccd7d4" # CI replaces this with a commit SHA
 color: blue
