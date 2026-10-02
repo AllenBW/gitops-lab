@@ -24,6 +24,17 @@ else
   colima start --cpu "$COLIMA_CPU" --memory "$COLIMA_MEMORY"
 fi
 docker context use colima >/dev/null
+
+# A removed Docker Desktop leaves "credsStore": "desktop" behind, and every pull then fails
+# with "docker-credential-desktop: executable file not found". Point it at the Keychain instead.
+DOCKER_CONFIG_FILE="$HOME/.docker/config.json"
+if [[ -f "$DOCKER_CONFIG_FILE" ]]; then
+  store=$(yq -p json '.credsStore // ""' "$DOCKER_CONFIG_FILE")
+  if [[ -n "$store" ]] && ! command -v "docker-credential-$store" >/dev/null; then
+    yq -i -p json -o json '.credsStore = "osxkeychain"' "$DOCKER_CONFIG_FILE"
+    echo "credsStore was '$store' (helper missing); set to osxkeychain"
+  fi
+fi
 docker info --format 'docker {{.ServerVersion}} on {{.OperatingSystem}}'
 
 step "Enabling repo git hooks (blocks committing private/)"
