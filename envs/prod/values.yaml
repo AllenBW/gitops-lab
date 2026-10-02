@@ -1,0 +1,6 @@
+# prod: manual sync in Argo CD. Promote by copying the tested tag from dev
+# in a PR. The PR review plus the manual sync are your two gates.
+replicaCount: 2
+image:
+  tag: "latest"
+color: blue

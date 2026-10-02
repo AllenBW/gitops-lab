@@ -1,0 +1,27 @@
+# Multi-source: the chart comes from charts/hello, the values from envs/prod.
+# $values is a reference to the second source (the same repo).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello-prod
+  namespace: argocd
+spec:
+  project: lab
+  sources:
+    - repoURL: https://github.com/AllenBW/gitops-lab.git
+      targetRevision: main
+      path: charts/hello
+      helm:
+        releaseName: hello
+        valueFiles:
+          - $values/envs/prod/values.yaml
+    - repoURL: https://github.com/AllenBW/gitops-lab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hello-prod
+  # No automated block: prod waits for a human to press Sync.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

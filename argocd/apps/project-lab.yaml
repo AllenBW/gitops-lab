@@ -1,0 +1,26 @@
+# AppProject = tenant boundary. Apps in "lab" may only pull from this repo
+# and only deploy into hello-* namespaces. This is how Argo CD does multi-tenancy.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: lab
+  namespace: argocd
+  annotations:
+    # Wave -1: create the project before the apps that live in it.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: Tenant boundary for the hello service
+  sourceRepos:
+    - https://github.com/AllenBW/gitops-lab.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "hello-*"
+  # Tenants can create namespaced things, but no cluster-wide resources.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: ""
+      kind: Service

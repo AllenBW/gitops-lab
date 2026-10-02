@@ -1,0 +1,7 @@
+#!/bin/sh
+# Refuse any commit that tracks a file under private/ (a separate private repo).
+if git diff --cached --name-only | grep -q '^private/'; then
+  echo "pre-commit: files under private/ are staged. This repo is public; unstage them:" >&2
+  echo "  git rm -r --cached private/" >&2
+  exit 1
+fi

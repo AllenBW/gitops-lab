@@ -1,0 +1,23 @@
+# Backstop for the public/private split: private/ is gitignored and is its own
+# private repo. Fail if anything under it is ever tracked here.
+# (.githooks/pre-commit catches this before commit; this catches anything that slips past.)
+name: guard
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  no-private-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nothing under private/ is tracked
+        run: |
+          if git ls-files | grep '^private/'; then
+            echo "::error::Files under private/ are tracked in this public repo."
+            exit 1
+          fi
