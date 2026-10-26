@@ -1,7 +1,7 @@
 # Usage: make help
 # Pinned on purpose: `stable` moves under you, so two installs a week apart can differ.
 # Upgrading Argo CD is a reviewed one-line PR. Override for a one-off: make argocd ARGOCD_VERSION=v3.x.y
-ARGOCD_VERSION ?= v3.5.3
+ARGOCD_VERSION ?= v3.5.6
 CLUSTER        ?= gitops-lab
 
 .PHONY: help setup init up down argocd password ui bootstrap status curl-dev
@@ -48,5 +48,5 @@ status: ## Show Argo CD applications and the hello pods
 curl-dev: ## Curl the dev service 6 times from a pod inside the cluster
 	@# Not a port-forward: that tunnels to a single pod, so you would never see load balancing.
 	@# sleep 2: kubectl attaches after the container starts; without it the first replies are lost.
-	@kubectl -n hello-dev run curl-$$$$ --rm -i --quiet --restart=Never --image=curlimages/curl:8.22.0 -- \
+	@kubectl -n hello-dev run curl-$$$$ --rm -i --quiet --restart=Never --image=curlimages/curl:8.23.0 -- \
 	  sh -c 'sleep 2; for i in 1 2 3 4 5 6; do curl -s hello; done'
