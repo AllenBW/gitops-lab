@@ -55,7 +55,7 @@ credential-free; private is a later exercise).
    Delete a pod and watch the ReplicaSet replace it. Then `kubectl -n scratch scale deploy/hello --replicas=3`
    and curl it from a pod inside the cluster to see the pod name change:
    ```
-   kubectl -n scratch run curl --rm -i --restart=Never --image=curlimages/curl:8.22.0 -- \
+   kubectl -n scratch run curl --rm -i --restart=Never --image=curlimages/curl:8.23.0 -- \
      sh -c 'sleep 2; for i in 1 2 3 4 5 6; do curl -s hello; done'
    ```
    (Don't use `kubectl port-forward` for this: it tunnels to one pod, so the name never changes.)
