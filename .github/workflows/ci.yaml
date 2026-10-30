@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   app:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -20,7 +20,7 @@ jobs:
         working-directory: app
 
   chart:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
